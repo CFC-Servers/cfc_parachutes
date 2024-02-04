@@ -411,17 +411,3 @@ end )
 
 util.AddNetworkString( "CFC_Parachute_DefineChuteDir" )
 util.AddNetworkString( "CFC_Parachute_SelectDesign" )
-
-resource.AddFile( "models/cfc/parachute/chute.mdl" )
-resource.AddFile( "models/cfc/parachute/pack.mdl" )
-
-do
-    local materialPrefix = "materials/" .. CFC_Parachute.DesignMaterialPrefix
-
-    for _, matName in pairs( CFC_Parachute.DesignMaterialNames ) do
-        resource.AddFile( materialPrefix .. matName .. ".vmt" )
-    end
-
-    resource.AddFile( materialPrefix .. "pack" .. ".vmt" )
-    resource.AddFile( materialPrefix .. "credits" .. ".vmt" )
-end
