@@ -21,7 +21,7 @@ CFC_Parachute.MenuToggleButtons = CFC_Parachute.MenuToggleButtons or {}
 
 CreateClientConVar( "cfc_parachute_space_equip", 2, true, true, "Press spacebar while falling to quickly equip a parachute.", 0, 2 )
 CreateClientConVar( "cfc_parachute_space_equip_double", 2, true, true, "Double tap spacebar to equip parachutes, instead of a single press.", 0, 2 )
-CreateClientConVar( "cfc_parachute_quick_close_advanced", 2, true, true, "Changes the key combo for closing parachutes from walk to crouch + walk.", 0, 2 )
+CreateClientConVar( "cfc_parachute_quick_close_advanced", 2, true, true, "Changes the key combo for closing parachutes from crouch to crouch + walk.", 0, 2 )
 
 
 CreateConVar( "cfc_parachute_design", 1, { FCVAR_ARCHIVE, FCVAR_USERINFO, FCVAR_SERVER_CAN_EXECUTE }, "Your selected parachute design.", 1, 50000 )
@@ -49,7 +49,7 @@ table.insert( CFC_Parachute.MenuToggleButtons, {
     TextOn = "Help/Info",
     HoverText = "Parachutes slow your descent and improve your aerial mobility." .. "\n\n" ..
         "While falling, press jump (spacebar) to open a parachute." .. "\n" ..
-        "Pressing walk (alt) will close the parachute." .. "\n\n" ..
+        "Pressing crouch (ctrl) will close the parachute." .. "\n\n" ..
         "You can select various chute designs and config options with the buttons below."
 } )
 
@@ -59,7 +59,7 @@ table.insert( CFC_Parachute.MenuToggleButtons, {
     ConVar = "cfc_parachute_space_equip",
     ConVarServerChoice = "2",
     HoverText = "Press spacebar while falling to open a parachute." .. "\n\n" ..
-        "To close the parachute, press the walk key (alt by default)."
+        "To close the parachute, press the crouch key (ctrl by default)."
 } )
 
 table.insert( CFC_Parachute.MenuToggleButtons, {
@@ -75,8 +75,8 @@ table.insert( CFC_Parachute.MenuToggleButtons, {
     TextOn = "Advanced Quick Close (Enabled)",
     ConVar = "cfc_parachute_quick_close_advanced",
     ConVarServerChoice = "2",
-    HoverText = "Changes the key combo for closing parachutes from walk to crouch + walk." .. "\n" ..
-        "(ctrl by default)" .. "\n\n" ..
+    HoverText = "Changes the key combo for closing parachutes from crouch to crouch + walk." .. "\n" ..
+        "(alt by default)" .. "\n\n" ..
         "The keys must be pressed within quick succession of each other."
 } )
 
