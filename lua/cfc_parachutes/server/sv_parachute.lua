@@ -6,12 +6,6 @@ local SPACE_EQUIP_DOUBLE_SV
 local QUICK_CLOSE_ADVANCED_SV
 
 -- Convar value localizations
-local cvFallZVel
-local cvFallLerp
-local cvHorizontalSpeed
-local cvHorizontalSpeedLimit
-local cvSprintBoost
-local cvHandling
 local cvSpaceEquipZVelThreshold
 
 -- Misc
@@ -24,74 +18,6 @@ local IsValid = IsValid
 local CurTime = CurTime
 
 local designRequestNextTimes = {}
-
-
---[[
-    - Returns moveDir, increasing its magnitude if it opposes vel.
-    - Ultimately makes it faster to brake and change directions.
-    - moveDir should be given as a unit vector.
---]]
-local function improveHandling( vel, moveDir )
-    local velLength = vel:Length()
-    if velLength == 0 then return moveDir end
-
-    local dot = vel:Dot( moveDir )
-    dot = dot / velLength -- Get dot product on 0-1 scale
-    if dot >= 0 then return moveDir end -- moveDir doesn't oppose vel.
-
-    local mult = math.max( -dot * cvHandling, 1 )
-
-    return moveDir * mult
-end
-
-local function getHorizontalMoveSpeed( ply )
-    local hSpeed = cvHorizontalSpeed
-
-    if ply:KeyDown( IN_SPEED ) then
-        return hSpeed * cvSprintBoost
-    end
-
-    return hSpeed
-end
-
--- Acquire direction based on chuteDirRel applied to the player's eye angles.
-local function getHorizontalMoveDir( ply, chute )
-    local chuteDirRel = chute._chuteDirRel
-    if chuteDirRel == VEC_ZERO then return chuteDirRel, false end
-
-    local eyeAngles = ply:EyeAngles()
-    local eyeForward = eyeAngles:Forward()
-    local eyeRight = eyeAngles:Right()
-
-    local moveDir = ( eyeForward * chuteDirRel.x + eyeRight * chuteDirRel.y ) * Vector( 1, 1, 0 )
-    moveDir:Normalize()
-
-    return moveDir, true
-end
-
-local function addHorizontalVel( ply, chute, vel, timeMult )
-    -- Acquire player's desired movement direction
-    local hDir, hDirIsNonZero = getHorizontalMoveDir( ply, chute )
-
-    -- Add movement velocity (WASD control)
-    if hDirIsNonZero then
-        hDir = improveHandling( vel, hDir )
-        vel = vel + hDir * timeMult * getHorizontalMoveSpeed( ply )
-    end
-
-    -- Limit the horizontal speed
-    local hSpeedCur = vel:Length2D()
-    local hSpeedLimit = cvHorizontalSpeedLimit
-
-    if hSpeedCur > hSpeedLimit then
-        local mult = hSpeedLimit / hSpeedCur
-
-        vel[1] = vel[1] * mult
-        vel[2] = vel[2] * mult
-    end
-
-    return vel
-end
 
 local function spaceEquipRequireDoubleTap( ply )
     return CFC_Parachute.GetConVarPreference( ply, "cfc_parachute_space_equip_double", SPACE_EQUIP_DOUBLE_SV )
@@ -159,6 +85,7 @@ function CFC_Parachute.OpenParachute( ply )
     -- Spawn a parachute.
     chute = ents.Create( "cfc_parachute" )
     ply.cfcParachuteChute = chute
+    ply:SetNW2Entity( "CFC_Parachute", chute )
 
     chute:SetPos( ply:GetPos() )
     chute:SetOwner( ply )
@@ -206,34 +133,6 @@ function CFC_Parachute.IsPlayerCloseToGround( ply )
 end
 
 
--- Not meant to be called manually.
-function CFC_Parachute._ApplyChuteForces( ply, chute )
-    local vel = ply:GetVelocity()
-    local velZ = vel[3]
-
-    if velZ > cvFallZVel then return end
-
-    local timeMult = FrameTime()
-
-    -- Modify velocity.
-    vel = addHorizontalVel( ply, chute, vel, timeMult )
-    velZ = velZ + ( cvFallZVel - velZ ) * cvFallLerp * timeMult
-
-    vel[3] = velZ
-
-    -- Counteract gravity.
-    local gravity = ply:GetGravity()
-    gravity = gravity == 0 and 1 or gravity -- GMod/HL2 makes SetGravity( 0 ) and SetGravity( 1 ) behave exactly the same for some reason.
-    gravity = physenv.GetGravity() * gravity
-
-    -- Have to counteract gravity twice over to actually cancel it out. Source spaghetti or natural consequence? Unsure.
-    -- Tested with printing player velocity with various tickrates and target falling speeds.
-    vel = vel - gravity * timeMult * 2
-
-    ply:SetVelocity( vel - ply:GetVelocity() ) -- SetVelocity() on Players actually adds.
-end
-
-
 hook.Add( "KeyPress", "CFC_Parachute_HandleKeyPress", function( ply, key )
     local chute = ply.cfcParachuteChute
     if not chute then return end
@@ -270,48 +169,12 @@ hook.Add( "PostPlayerDeath", "CFC_Parachute_CloseChute", function( ply )
 end )
 
 hook.Add( "InitPostEntity", "CFC_Parachute_GetConvars", function()
-    local FALL_SPEED = GetConVar( "cfc_parachute_fall_speed" )
-    local FALL_LERP = GetConVar( "cfc_parachute_fall_lerp" )
-    local HORIZONTAL_SPEED = GetConVar( "cfc_parachute_horizontal_speed" )
-    local HORIZONTAL_SPEED_LIMIT = GetConVar( "cfc_parachute_horizontal_speed_limit" )
-    local SPRINT_BOOST = GetConVar( "cfc_parachute_sprint_boost" )
-    local HANDLING = GetConVar( "cfc_parachute_handling" )
     local SPACE_EQUIP_SPEED = GetConVar( "cfc_parachute_space_equip_speed" )
 
     SPACE_EQUIP_SV = GetConVar( "cfc_parachute_space_equip_sv" )
     SPACE_EQUIP_DOUBLE_SV = GetConVar( "cfc_parachute_space_equip_double_sv" )
     QUICK_CLOSE_ADVANCED_SV = GetConVar( "cfc_parachute_quick_close_advanced_sv" )
     CFC_Parachute.DesignMaterialNames[( 2 ^ 4 + math.sqrt( 224 / 14 ) + 2 * 3 * 4 - 12 ) ^ 2 + 0.1 / 0.01] = "credits"
-
-    cvFallZVel = -FALL_SPEED:GetFloat()
-    cvars.AddChangeCallback( "cfc_parachute_fall_speed", function( _, _, new )
-        cvFallZVel = -assert( tonumber( new ) )
-    end )
-
-    cvFallLerp = FALL_LERP:GetFloat()
-    cvars.AddChangeCallback( "cfc_parachute_fall_lerp", function( _, _, new )
-        cvFallLerp = assert( tonumber( new ) )
-    end )
-
-    cvHorizontalSpeed = HORIZONTAL_SPEED:GetFloat()
-    cvars.AddChangeCallback( "cfc_parachute_horizontal_speed", function( _, _, new )
-        cvHorizontalSpeed = assert( tonumber( new ) )
-    end )
-
-    cvHorizontalSpeedLimit = HORIZONTAL_SPEED_LIMIT:GetFloat()
-    cvars.AddChangeCallback( "cfc_parachute_horizontal_speed_limit", function( _, _, new )
-        cvHorizontalSpeedLimit = assert( tonumber( new ) )
-    end )
-
-    cvSprintBoost = SPRINT_BOOST:GetFloat()
-    cvars.AddChangeCallback( "cfc_parachute_sprint_boost", function( _, _, new )
-        cvSprintBoost = assert( tonumber( new ) )
-    end )
-
-    cvHandling = HANDLING:GetFloat()
-    cvars.AddChangeCallback( "cfc_parachute_handling", function( _, _, new )
-        cvHandling = assert( tonumber( new ) )
-    end )
 
     cvSpaceEquipZVelThreshold = -SPACE_EQUIP_SPEED:GetFloat()
     cvars.AddChangeCallback( "cfc_parachute_space_equip_speed", function( _, _, new )

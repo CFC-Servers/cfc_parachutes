@@ -95,6 +95,11 @@ function ENT:Close( expireDelay )
     self:EmitSound( "physics/wood/wood_crate_impact_hard4.wav", 85, 100, 1 )
     self:SetColor( COLOR_HIDE )
 
+    local owner = self:GetOwner()
+    if owner:IsValid() then
+   	    owner:SetNW2Entity( "CFC_Parachute", NULL )
+   	end
+
     timer.Create( "CFC_Parachute_ExpireChute_" .. self:EntIndex(), expireDelay or EXPIRATION_DELAY:GetFloat(), 1, function()
         if not IsValid( self ) then return end
 
@@ -110,6 +115,7 @@ function ENT:OnRemove()
     if not IsValid( owner ) then return end
 
     owner.cfcParachuteChute = nil
+    owner:SetNW2Entity( "CFC_Parachute", NULL )
 end
 
 function ENT:Think()
@@ -124,7 +130,6 @@ function ENT:Think()
     end
 
     self:SetAngles( owner:GetAngles() )
-    CFC_Parachute._ApplyChuteForces( owner, self )
     self:NextThink( CurTime() )
 
     return true
