@@ -9,7 +9,6 @@ local QUICK_CLOSE_ADVANCED_SV
 local cvSpaceEquipZVelThreshold
 
 -- Misc
-local VEC_ZERO = Vector( 0, 0, 0 )
 local VEC_GROUND_TRACE_OFFSET = Vector( 0, 0, -72 )
 local SPACE_EQUIP_DOUBLE_TAP_WINDOW = 0.35
 local QUICK_CLOSE_WINDOW = 0.35
