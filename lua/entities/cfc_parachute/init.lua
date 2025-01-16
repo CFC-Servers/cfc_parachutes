@@ -152,6 +152,11 @@ function ENT:Think()
     return true
 end
 
+function ENT:ChuteTakeDamage( damage )
+    if not self._chuteIsOpen then return end
+    self._chuteHealth = self._chuteHealth - damage
+end
+
 function ENT:CanOpen()
     if self._chuteIsOpen then return false end
 

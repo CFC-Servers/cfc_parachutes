@@ -112,7 +112,7 @@ local function addHorizontalVel( ply, chute, vel, timeMult )
         vel[1] = vel[1] * mult
         vel[2] = vel[2] * mult
         if SERVER then -- so propsurf breaks it
-            chute._chuteHealth = chute._chuteHealth + -1
+            chute:ChuteTakeDamage( 1 )
         end
     end
 
