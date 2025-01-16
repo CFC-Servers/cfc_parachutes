@@ -8,6 +8,8 @@ CFC_Parachute = CFC_Parachute or {}
 local EXPIRATION_DELAY = GetConVar( "cfc_parachute_expiration_delay" )
 local FALL_SPEED = GetConVar( "cfc_parachute_fall_speed" )
 local VIEWPUNCH_STRENGTH = GetConVar( "cfc_parachute_viewpunch_strength" )
+local CHUTE_MAX_HEALTH = 40
+local CHUTE_BROKEN_DELAY = 4
 
 local COLOR_SHOW = Color( 255, 255, 255, 255 )
 local COLOR_HIDE = Color( 255, 255, 255, 0 )
@@ -51,6 +53,8 @@ function ENT:Initialize()
     self._chuteMoveLeft = 0
     self._chuteDirRel = Vector( 0, 0, 0 )
     self._chuteDirRel = Vector( 0, 0, 0 )
+    self._chuteNextOpen = 0
+    self._chuteHealth = CHUTE_MAX_HEALTH
 
     table.insert( allParachutes, self )
 
@@ -75,6 +79,7 @@ function ENT:Open()
     self:ApplyViewPunch()
 
     self._chuteIsOpen = true
+
     self:SetNoDraw( false )
     self:DrawShadow( true )
     self:_UpdateChuteDirection()
@@ -129,6 +134,18 @@ function ENT:Think()
         return
     end
 
+    if self._chuteHealth <= 0 then -- so propsurf breaks it
+        self:Close()
+        owner:ChatPrint( "Your chute broke..." ) -- meh print
+        self:EmitSound( "physics/cardboard/cardboard_box_impact_bullet1.wav", 75, 100, 1 )
+        self._chuteNextOpen = CurTime() + CHUTE_BROKEN_DELAY
+        self._chuteHealth = CHUTE_MAX_HEALTH
+    end
+
+    if owner:WaterLevel() >= 2 then
+        self:Close()
+    end
+
     self:SetAngles( owner:GetAngles() )
     self:NextThink( CurTime() )
 
@@ -138,8 +155,11 @@ end
 function ENT:CanOpen()
     if self._chuteIsOpen then return false end
 
+    if self._chuteNextOpen > CurTime() then return false end
+
     local owner = self:GetOwner()
     if not IsValid( owner ) then return false end
+    if owner:WaterLevel() >= 1 then return false end
     if CFC_Parachute.IsPlayerCloseToGround( owner ) then return false end
 
     return true
