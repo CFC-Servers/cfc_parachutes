@@ -111,6 +111,9 @@ local function addHorizontalVel( ply, chute, vel, timeMult )
 
         vel[1] = vel[1] * mult
         vel[2] = vel[2] * mult
+        if SERVER then -- so propsurf breaks it
+            chute:ChuteTakeDamage( 1 )
+        end
     end
 
     return vel
@@ -121,13 +124,15 @@ function CFC_Parachute._ApplyChuteForces( ply, chute, mv )
     local vel = mv and mv:GetVelocity() or ply:GetVelocity()
     local velZ = vel[3]
 
-    if velZ > cvFallZVel then return end
-
     local timeMult = FrameTime()
 
     -- Modify velocity.
     vel = addHorizontalVel( ply, chute, vel, timeMult )
     velZ = velZ + ( cvFallZVel - velZ ) * cvFallLerp * timeMult
+
+    -- do this after we check the horizontal vel
+    -- otherwise players going even remotely upwards with a parachute out won't have their vel limited
+    if velZ > cvFallZVel then return end
 
     vel[3] = velZ
     if mv then
