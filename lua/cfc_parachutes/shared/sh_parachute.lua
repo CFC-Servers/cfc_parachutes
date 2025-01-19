@@ -130,7 +130,9 @@ function CFC_Parachute._ApplyChuteForces( ply, chute, mv )
     vel = addHorizontalVel( ply, chute, vel, timeMult )
     velZ = velZ + ( cvFallZVel - velZ ) * cvFallLerp * timeMult
 
-    if velZ > cvFallZVel then return end -- do this after we check the horizontal vel
+    -- do this after we check the horizontal vel
+    -- otherwise players going even remotely upwards with a parachute out won't have their vel limited
+    if velZ > cvFallZVel then return end
 
     vel[3] = velZ
     if mv then

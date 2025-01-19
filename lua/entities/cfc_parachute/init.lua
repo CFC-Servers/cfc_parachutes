@@ -112,6 +112,18 @@ function ENT:Close( expireDelay )
     end )
 end
 
+function ENT:BreakChute()
+    self:Close()
+    self:EmitSound( "physics/cardboard/cardboard_box_impact_bullet1.wav", 75, 100, 1 )
+    self._chuteNextOpen = CurTime() + CHUTE_BROKEN_DELAY
+    self._chuteHealth = CHUTE_MAX_HEALTH
+
+    local owner = self:GetOwner()
+    if not IsValid( owner ) then return end
+
+    owner:ChatPrint( "Your chute broke..." ) -- meh print
+end
+
 function ENT:OnRemove()
     table.RemoveByValue( allParachutes, self )
     timer.Remove( "CFC_Parachute_ExpireChute_" .. self:EntIndex() )
@@ -135,11 +147,7 @@ function ENT:Think()
     end
 
     if self._chuteHealth <= 0 then -- so propsurf breaks it
-        self:Close()
-        owner:ChatPrint( "Your chute broke..." ) -- meh print
-        self:EmitSound( "physics/cardboard/cardboard_box_impact_bullet1.wav", 75, 100, 1 )
-        self._chuteNextOpen = CurTime() + CHUTE_BROKEN_DELAY
-        self._chuteHealth = CHUTE_MAX_HEALTH
+        self:BreakChute()
     end
 
     if owner:WaterLevel() >= 2 then
