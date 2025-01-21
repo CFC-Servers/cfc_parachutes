@@ -5,7 +5,7 @@ local cvHorizontalSpeedLimit
 local cvSprintBoost
 local cvHandling
 
-local SPEEDLIMIT_DAMAGEGRACE = 15
+local vHorizontalSpeedLimitDamageGrace = 25
 
 local function setupConVars()
     local FALL_SPEED = GetConVar( "cfc_parachute_fall_speed" )
@@ -114,7 +114,7 @@ local function addHorizontalVel( ply, chute, vel, timeMult )
         vel[1] = vel[1] * mult
         vel[2] = vel[2] * mult
         if SERVER then -- so propsurf breaks it
-            local gracedLimit = hSpeedLimit + SPEEDLIMIT_DAMAGEGRACE
+            local gracedLimit = hSpeedLimit + vHorizontalSpeedLimitDamageGrace
             if hSpeedCur > gracedLimit then -- so airstrafing DOESNT break it
                 chute:ChuteTakeDamage( 1 )
             end
