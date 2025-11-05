@@ -92,16 +92,11 @@ function CFC_Parachute.OpenParachute( ply )
     chute:ApplyChuteDesign()
 
     -- Open the parachute.
-    timer.Simple( 0.1, function()
-        if not IsValid( ply ) then return end
-        if not IsValid( chute ) then return end
-
-        if ply:InVehicle() then
-            chute:Close( 0.5 )
-        else
-            chute:Open()
-        end
-    end )
+    if ply:InVehicle() then
+        chute:Close( 0.5 )
+    else
+        chute:Open()
+    end
 end
 
 --[[
