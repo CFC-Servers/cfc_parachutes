@@ -170,7 +170,7 @@ if SERVER then
 else
     hook.Add( "Move", "CFC_Parachute_Movement", function( ply, mv ) -- Only called for the local player
         local parachute = ply:GetNW2Entity( "CFC_Parachute" )
-        if parachute and parachute != NULL then -- Simple NULL check since it's a normal entity :D
+        if parachute and parachute != NULL and parachute:GetNW2Bool( "CFC_Parachute_IsOpen" ) then -- Simple NULL check since it's a normal entity :D
             CFC_Parachute._ApplyChuteForces( ply, parachute, mv )
         end
     end )

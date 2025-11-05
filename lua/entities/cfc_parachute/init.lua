@@ -47,6 +47,7 @@ end
 
 function ENT:Initialize()
     self._chuteIsOpen = false
+    self:SetNW2Bool( "CFC_Parachute_IsOpen", false )
     self._chuteMoveForward = 0
     self._chuteMoveBack = 0
     self._chuteMoveRight = 0
@@ -79,6 +80,7 @@ function ENT:Open()
     self:ApplyViewPunch()
 
     self._chuteIsOpen = true
+    self:SetNW2Bool( "CFC_Parachute_IsOpen", true )
 
     self:SetNoDraw( false )
     self:DrawShadow( true )
@@ -94,6 +96,7 @@ function ENT:Close( expireDelay )
     if not self._chuteIsOpen then return end
 
     self._chuteIsOpen = false
+    self:SetNW2Bool( "CFC_Parachute_IsOpen", false )
     self:SetNoDraw( true )
     self:DrawShadow( false )
 
