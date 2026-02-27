@@ -163,7 +163,7 @@ end
 if SERVER then
     hook.Add( "Move", "CFC_Parachute_Movement", function( ply, mv )
         local parachute = ply:GetTable().cfcParachuteChute
-        if parachute and parachute != NULL and parachute._chuteIsOpen then -- Simple NULL check since it's a normal entity :D
+        if parachute and parachute != NULL and parachute:GetIsOpen() then -- Simple NULL check since it's a normal entity :D
             CFC_Parachute._ApplyChuteForces( ply, parachute, mv )
         end
     end )

@@ -7,3 +7,8 @@ ENT.Contact         = "https://discord.gg/cfc-servers"
 ENT.Purpose         = "Gliding around in safety and style"
 ENT.Instructions    = "spawnmenu > options > CFC > Parachutes for more info"
 ENT.RenderGroup     = RENDERGROUP_BOTH
+
+function ENT:SetupDataTables()
+    self:NetworkVar( "Bool", "IsOpen" )
+    self:NetworkVar( "Int", "ChuteHealth" )
+end
