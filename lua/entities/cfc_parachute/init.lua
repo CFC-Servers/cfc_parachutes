@@ -46,7 +46,9 @@ end
 
 
 function ENT:Initialize()
-    self._chuteIsOpen = false
+    self:SetIsOpen( false )
+    self:SetChuteHealth( CHUTE_MAX_HEALTH )
+
     self._chuteMoveForward = 0
     self._chuteMoveBack = 0
     self._chuteMoveRight = 0
@@ -54,7 +56,6 @@ function ENT:Initialize()
     self._chuteDirRel = Vector( 0, 0, 0 )
     self._chuteDirRel = Vector( 0, 0, 0 )
     self._chuteNextOpen = 0
-    self._chuteHealth = CHUTE_MAX_HEALTH
 
     table.insert( allParachutes, self )
 
@@ -78,7 +79,7 @@ function ENT:Open()
 
     self:ApplyViewPunch()
 
-    self._chuteIsOpen = true
+    self:SetIsOpen( true )
 
     self:SetNoDraw( false )
     self:DrawShadow( true )
@@ -91,9 +92,9 @@ function ENT:Open()
 end
 
 function ENT:Close( expireDelay )
-    if not self._chuteIsOpen then return end
+    if not self:GetIsOpen() then return end
 
-    self._chuteIsOpen = false
+    self:SetIsOpen( false )
     self:SetNoDraw( true )
     self:DrawShadow( false )
 
@@ -116,7 +117,7 @@ function ENT:BreakChute()
     self:Close()
     self:EmitSound( "physics/cardboard/cardboard_box_impact_bullet1.wav", 75, 100, 1 )
     self._chuteNextOpen = CurTime() + CHUTE_BROKEN_DELAY
-    self._chuteHealth = CHUTE_MAX_HEALTH
+    self:SetChuteHealth( CHUTE_MAX_HEALTH )
 
     local owner = self:GetOwner()
     if not IsValid( owner ) then return end
@@ -136,7 +137,7 @@ function ENT:OnRemove()
 end
 
 function ENT:Think()
-    if not self._chuteIsOpen then return end
+    if not self:GetIsOpen() then return end
 
     local owner = self:GetOwner()
 
@@ -146,7 +147,7 @@ function ENT:Think()
         return
     end
 
-    if self._chuteHealth <= 0 then -- so propsurf breaks it
+    if self:GetChuteHealth() <= 0 then -- so propsurf breaks it
         self:BreakChute()
     end
 
@@ -161,12 +162,12 @@ function ENT:Think()
 end
 
 function ENT:ChuteTakeDamage( damage )
-    if not self._chuteIsOpen then return end
-    self._chuteHealth = self._chuteHealth - damage
+    if not self:GetIsOpen() then return end
+    self:SetChuteHealth( self:GetChuteHealth() - damage )
 end
 
 function ENT:CanOpen()
-    if self._chuteIsOpen then return false end
+    if self:GetIsOpen() then return false end
 
     if self._chuteNextOpen > CurTime() then return false end
 
@@ -252,7 +253,7 @@ do
             selfTable._chuteMoveLeft = state and 1 or 0
         end
 
-        if selfTable._chuteIsOpen then
+        if self:GetIsOpen() then
             self:_UpdateChuteDirection()
         end
     end
