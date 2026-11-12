@@ -7,6 +7,8 @@ local cvHandling
 
 local vHorizontalSpeedLimitDamageGrace = 25
 
+local VEC_ZERO = Vector( 0, 0, 0 )
+
 local function setupConVars()
     local FALL_SPEED = GetConVar( "cfc_parachute_fall_speed" )
     local FALL_LERP = GetConVar( "cfc_parachute_fall_lerp" )
@@ -47,7 +49,7 @@ local function setupConVars()
 end
 
 hook.Add( "InitPostEntity", "CFC_Shared_Parachute_GetConvars", setupConVars )
-if Entity( 0 ) != NULL then
+if Entity( 0 ) ~= NULL then
     setupConVars() -- AutoRefresh :D
 end
 
@@ -163,14 +165,14 @@ end
 if SERVER then
     hook.Add( "Move", "CFC_Parachute_Movement", function( ply, mv )
         local parachute = ply:GetTable().cfcParachuteChute
-        if parachute and parachute != NULL and parachute:GetIsOpen() then -- Simple NULL check since it's a normal entity :D
+        if parachute and parachute ~= NULL and parachute:GetIsOpen() then -- Simple NULL check since it's a normal entity :D
             CFC_Parachute._ApplyChuteForces( ply, parachute, mv )
         end
     end )
 else
     hook.Add( "Move", "CFC_Parachute_Movement", function( ply, mv ) -- Only called for the local player
         local parachute = ply:GetNW2Entity( "CFC_Parachute" )
-        if parachute and parachute != NULL then -- Simple NULL check since it's a normal entity :D
+        if parachute and parachute ~= NULL then -- Simple NULL check since it's a normal entity :D
             CFC_Parachute._ApplyChuteForces( ply, parachute, mv )
         end
     end )

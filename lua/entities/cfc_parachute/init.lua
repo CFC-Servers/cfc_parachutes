@@ -54,7 +54,6 @@ function ENT:Initialize()
     self._chuteMoveRight = 0
     self._chuteMoveLeft = 0
     self._chuteDirRel = Vector( 0, 0, 0 )
-    self._chuteDirRel = Vector( 0, 0, 0 )
     self._chuteNextOpen = 0
 
     table.insert( allParachutes, self )
