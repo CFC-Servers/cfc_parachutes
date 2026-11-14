@@ -17,12 +17,11 @@ local function trySetupLFS()
         local dir = lfsPlane:GetUp()
         local lfsVel = lfsPlane:GetVelocity() * 1.2
 
-        CFC_Parachute.OpenParachute( ply )
-
         timer.Simple( 0.01, function()
             if not IsValid( ply ) then return end
 
             ply:SetVelocity( dir * force + lfsVel )
+            CFC_Parachute.OpenParachute( ply )
         end )
     end
 
