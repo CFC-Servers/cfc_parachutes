@@ -19,7 +19,7 @@ CFC_Parachute.CloseParachute( ent )
 | cfc_parachute_horizontal_speed | How quickly you move in a parachute. | 80 |
 | cfc_parachute_horizontal_speed_limit | Max horizontal speed of a parachute. | 700 |
 | cfc_parachute_horizontal_speed_limit_damage_grace | Extra horizontal speed allowed above the limit before parachutes take damage. | 85 |
-| cfc_parachute_horizontal_speed_limit_lerp | How quickly a parachute will reach horizonal speed limit. | 4 |
+| cfc_parachute_horizontal_speed_limit_lerp | How quickly a parachute will reach horizonal speed limit when going over the speed limit. | 4 |
 | cfc_parachute_sprint_boost | How much of a horizontal boost you get in a parachute while sprinting. | 1.25 |
 | cfc_parachute_handling | Improves parachute handling by making it easier to brake or chagne directions. 1 gives no handling boost, 0-1 reduces handling. | 4 |
 | cfc_parachute_expiration_delay | How long until a parachute will delete itself after being closed. | 5 |
