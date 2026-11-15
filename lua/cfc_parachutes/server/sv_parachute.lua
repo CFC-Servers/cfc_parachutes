@@ -17,6 +17,8 @@ local IsValid = IsValid
 local CurTime = CurTime
 
 local designRequestNextTimes = {}
+local activeChutes = CFC_Parachute.ActiveChutes or {}
+CFC_Parachute.ActiveChutes = activeChutes
 
 local function spaceEquipRequireDoubleTap( ply )
     return CFC_Parachute.GetConVarPreference( ply, "cfc_parachute_space_equip_double", SPACE_EQUIP_DOUBLE_SV )
@@ -24,6 +26,20 @@ end
 
 local function quickCloseAdvancedEnabled( ply )
     return CFC_Parachute.GetConVarPreference( ply, "cfc_parachute_quick_close_advanced", QUICK_CLOSE_ADVANCED_SV )
+end
+
+local function isEntityCloseToGround( ent )
+    local mins, maxs = ent:WorldSpaceAABB()
+    local startPos = ( mins + maxs ) / 2
+    startPos.z = mins.z
+
+    local tr = util.TraceLine( {
+        start = startPos,
+        endpos = startPos + VEC_GROUND_TRACE_OFFSET,
+        filter = ent,
+    } )
+
+    return tr.Hit
 end
 
 
@@ -44,65 +60,135 @@ function CFC_Parachute.GetConVarPreference( ply, convarName, svConvarObject )
     return serverDefault ~= "0"
 end
 
-function CFC_Parachute.SetDesignSelection( ply, newDesign )
-    if not IsValid( ply ) then return end
+-- Sets an absolute scale for this owner's current and future parachutes.
+function CFC_Parachute.SetParachuteScale( ent, scale )
+    if not IsValid( ent ) or ent:IsWorld() then return false end
+    if type( scale ) ~= "number" or scale ~= scale or scale <= 0 or scale == math.huge then return false end
+
+    ent:SetNWFloat( "CFC_Parachute_Scale", scale )
+
+    return true
+end
+
+function CFC_Parachute.SetDesignSelection( ent, newDesign )
+    if not IsValid( ent ) then return end
 
     local validatedDesign = newDesign
 
     -- Validate design ID, falling back to the previous one if necessary.
     if not CFC_Parachute.DesignMaterialNames[newDesign] then
-        validatedDesign = ply.cfcParachuteDesignID or 1
+        validatedDesign = ent.cfcParachuteDesignID or 1
     end
 
-    if newDesign ~= validatedDesign then
-        ply:ConCommand( "cfc_parachute_design " .. validatedDesign )
+    if ent:IsPlayer() and newDesign ~= validatedDesign then
+        ent:ConCommand( "cfc_parachute_design " .. validatedDesign )
 
         return
     end
 
-    ply.cfcParachuteDesignID = validatedDesign
+    ent.cfcParachuteDesignID = validatedDesign
 
-    local chute = ply.cfcParachuteChute
-
-    if IsValid( chute ) then
-        chute:ApplyChuteDesign()
-    end
+    ent:SetNWInt( "CFC_Parachute_Design", validatedDesign )
 end
 
-function CFC_Parachute.OpenParachute( ply )
-    if not IsValid( ply ) then return end
+local EXPIRATION_DELAY = GetConVar( "cfc_parachute_expiration_delay" )
+local FALL_SPEED = GetConVar( "cfc_parachute_fall_speed" )
+local VIEWPUNCH_STRENGTH = GetConVar( "cfc_parachute_viewpunch_strength" )
+local CHUTE_MAX_HEALTH = 100
+local CHUTE_BROKEN_DELAY = 4
 
-    local chute = ply.cfcParachuteChute
+local function updateChuteDirection( ply )
+    local forward = ( ply:KeyDown( IN_FORWARD ) and 1 or 0 ) - ( ply:KeyDown( IN_BACK ) and 1 or 0 )
+    local right = ( ply:KeyDown( IN_MOVERIGHT ) and 1 or 0 ) - ( ply:KeyDown( IN_MOVELEFT ) and 1 or 0 )
 
-    -- Parachute is valid, open it.
-    if IsValid( chute ) then
-        chute:Open()
+    ply:SetNWVector( "CFC_Parachute_Direction", Vector( forward, right, 0 ) )
+end
 
-        return
+function CFC_Parachute.CloseParachute( ent, expireDelay )
+    if not IsValid( ent ) or not ent:GetNWBool( "CFC_Parachute_Open" ) then return end
+
+    ent:SetNWBool( "CFC_Parachute_Open", false )
+    ent.cfcParachuteState.expiresAt = CurTime() + ( expireDelay or EXPIRATION_DELAY:GetFloat() )
+    ent:EmitSound( "physics/wood/wood_crate_impact_hard4.wav", 85, 100, 1 )
+end
+
+function CFC_Parachute.DamageParachute( ent, damage )
+    if not IsValid( ent ) then return end
+
+    local state = ent.cfcParachuteState
+    if not state or not ent:GetNWBool( "CFC_Parachute_Open" ) then return end
+
+    state.health = state.health - damage
+    if state.health > 0 then return end
+
+    CFC_Parachute.CloseParachute( ent )
+    state.nextOpen = CurTime() + CHUTE_BROKEN_DELAY
+    state.health = CHUTE_MAX_HEALTH
+    ent:EmitSound( "physics/cardboard/cardboard_box_impact_bullet1.wav", 75, 100, 1 )
+end
+
+function CFC_Parachute.OpenParachute( ent )
+    if not IsValid( ent ) or ent:IsWorld() then return end
+    if ent:GetNWBool( "CFC_Parachute_Open" ) then return end
+
+    local state = ent.cfcParachuteState
+    if state and state.nextOpen > CurTime() then return end
+    if ent:IsPlayer() then
+        if not ent:Alive() or ent:InVehicle() or ent:GetMoveType() == MOVETYPE_NOCLIP then return end
+        if CFC_Parachute.IsPlayerCloseToGround( ent ) then return end
     end
 
-    -- Spawn a parachute.
-    chute = ents.Create( "cfc_parachute" )
-    ply.cfcParachuteChute = chute
-    ply:SetNW2Entity( "CFC_Parachute", chute )
+    state = state or { health = CHUTE_MAX_HEALTH, nextOpen = 0 }
+    state.expiresAt = nil
+    ent.cfcParachuteState = state
+    activeChutes[ent] = true
 
-    chute:SetPos( ply:GetPos() )
-    chute:SetOwner( ply )
-    chute:Spawn()
-    chute:ApplyChuteDesign()
+    if ent:IsPlayer() then
+        CFC_Parachute.SetDesignSelection( ent, ent:GetInfoNum( "cfc_parachute_design", 1 ) )
+        updateChuteDirection( ent )
+    else
+        CFC_Parachute.SetDesignSelection( ent, ent.cfcParachuteDesignID or 1 )
+    end
 
-    -- Open the parachute.
-    timer.Simple( 0.1, function()
-        if not IsValid( ply ) then return end
-        if not IsValid( chute ) then return end
+    ent:SetNWBool( "CFC_Parachute_Open", true )
+    ent:EmitSound( "physics/cardboard/cardboard_box_break3.wav", 85, 100, 1 )
 
-        if ply:InVehicle() then
-            chute:Close( 0.5 )
-        else
-            chute:Open()
+    if not ent:IsPlayer() then return end
+
+    local zVel = ent:GetVelocity().z
+    local targetFallVel = -FALL_SPEED:GetFloat()
+    if targetFallVel == 0 or zVel >= targetFallVel - 50 then return end
+
+    local strength = -math.abs( VIEWPUNCH_STRENGTH:GetFloat() * zVel / targetFallVel )
+    if strength == 0 then return end
+
+    ent:ViewPunch( Angle(
+        math.Rand( strength * 0.5, strength ),
+        math.Rand( -strength * 0.125, strength * 0.125 ),
+        0
+    ) )
+end
+
+hook.Add( "Think", "CFC_Parachute_UpdateState", function()
+    for ent in pairs( activeChutes ) do
+        if not IsValid( ent ) or not ent.cfcParachuteState then
+            activeChutes[ent] = nil
+        elseif ent:GetNWBool( "CFC_Parachute_Open" ) then
+            if ent:WaterLevel() >= 2 then
+                CFC_Parachute.CloseParachute( ent )
+            elseif ent:IsPlayer() then
+                updateChuteDirection( ent )
+            elseif isEntityCloseToGround( ent ) then
+                CFC_Parachute.CloseParachute( ent, 0.5 )
+            else
+                CFC_Parachute._ApplyEntityChuteForces( ent )
+            end
+        elseif ent.cfcParachuteState.expiresAt and ent.cfcParachuteState.expiresAt <= CurTime() then
+            ent.cfcParachuteState = nil
+            activeChutes[ent] = nil
         end
-    end )
-end
+    end
+end )
 
 --[[
     - Whether or not the player is able and willing to use space-equip.
@@ -132,42 +218,32 @@ function CFC_Parachute.IsPlayerCloseToGround( ply )
 end
 
 
-hook.Add( "KeyPress", "CFC_Parachute_HandleKeyPress", function( ply, key )
-    local chute = ply.cfcParachuteChute
-    if not chute then return end
-
-    chute:_KeyPress( ply, key, true )
-end )
-
-hook.Add( "KeyRelease", "CFC_Parachute_HandleKeyRelease", function( ply, key )
-    local chute = ply.cfcParachuteChute
-    if not chute then return end
-
-    chute:_KeyPress( ply, key, false )
-end )
-
 hook.Add( "OnPlayerHitGround", "CFC_Parachute_CloseChute", function( ply )
-    local chute = ply.cfcParachuteChute
-    if not chute then return end
-
-    chute:Close( 0.5 )
+    CFC_Parachute.CloseParachute( ply, 0.5 )
 end )
 
 hook.Add( "PlayerEnteredVehicle", "CFC_Parachute_CloseChute", function( ply )
-    local chute = ply.cfcParachuteChute
-    if not chute then return end
-
-    chute:Close( 0.5 )
+    CFC_Parachute.CloseParachute( ply, 0.5 )
 end )
 
 hook.Add( "PostPlayerDeath", "CFC_Parachute_CloseChute", function( ply )
-    local chute = ply.cfcParachuteChute
-    if not chute then return end
-
-    chute:Remove()
+    ply:SetNWBool( "CFC_Parachute_Open", false )
+    ply.cfcParachuteState = nil
 end )
 
-hook.Add( "InitPostEntity", "CFC_Parachute_GetConvars", function()
+hook.Add( "PostCleanupMap", "CFC_Parachute_ResetState", function()
+    for ent in pairs( activeChutes ) do
+        if IsValid( ent ) then
+            ent:SetNWBool( "CFC_Parachute_Open", false )
+            ent.cfcParachuteState = nil
+        end
+
+        activeChutes[ent] = nil
+    end
+end )
+
+-- The loader creates these convars before including this file, including on AutoRefresh.
+do
     local SPACE_EQUIP_SPEED = GetConVar( "cfc_parachute_space_equip_speed" )
 
     SPACE_EQUIP_SV = GetConVar( "cfc_parachute_space_equip_sv" )
@@ -178,16 +254,13 @@ hook.Add( "InitPostEntity", "CFC_Parachute_GetConvars", function()
     cvSpaceEquipZVelThreshold = -SPACE_EQUIP_SPEED:GetFloat()
     cvars.AddChangeCallback( "cfc_parachute_space_equip_speed", function( _, _, new )
         cvSpaceEquipZVelThreshold = -assert( tonumber( new ) )
-    end )
-end )
+    end, "CFC_Parachute_SpaceEquipSpeed" )
+end
 
 hook.Add( "PlayerNoClip", "CFC_Parachute_CloseExcessChutes", function( ply, state )
     if not state then return end
 
-    local chute = ply.cfcParachuteChute
-    if not chute then return end
-
-    chute:Close()
+    CFC_Parachute.CloseParachute( ply )
 end, HOOK_LOW )
 
 hook.Add( "CFC_Parachute_CanSpaceEquip", "CFC_Parachute_RequireFalling", function( ply )
@@ -222,9 +295,7 @@ end )
 
 hook.Add( "KeyPress", "CFC_Parachute_QuickClose", function( ply, key )
     if key ~= IN_WALK and key ~= IN_DUCK then return end
-
-    local chute = ply.cfcParachuteChute
-    if not chute then return end
+    if not ply:GetNWBool( "CFC_Parachute_Open" ) then return end
 
     if quickCloseAdvancedEnabled( ply ) then
         local now = CurTime()
@@ -244,7 +315,7 @@ hook.Add( "KeyPress", "CFC_Parachute_QuickClose", function( ply, key )
         if key == IN_WALK then return end
     end
 
-    chute:Close()
+    CFC_Parachute.CloseParachute( ply )
 end )
 
 hook.Add( "KeyRelease", "CFC_Parachute_QuickClose", function( ply, key )
@@ -271,5 +342,4 @@ net.Receive( "CFC_Parachute_SelectDesign", function( _, ply )
 end )
 
 
-util.AddNetworkString( "CFC_Parachute_DefineChuteDir" )
 util.AddNetworkString( "CFC_Parachute_SelectDesign" )
