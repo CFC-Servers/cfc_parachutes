@@ -169,22 +169,46 @@ function CFC_Parachute.OpenParachute( ent )
     ) )
 end
 
+local function isPartiallySubmerged( ent )
+    return ent:WaterLevel() >= 2
+end
+
+local function updateOpenChute( ent )
+    if isPartiallySubmerged( ent ) then
+        return CFC_Parachute.CloseParachute( ent )
+    end
+
+    if ent:IsPlayer() then
+        return updateChuteDirection( ent )
+    end
+
+    if isEntityCloseToGround( ent ) then
+        return CFC_Parachute.CloseParachute( ent, 0.5 )
+    end
+
+    CFC_Parachute._ApplyEntityChuteForces( ent )
+end
+
+local function updateChuteState( ent )
+    if not IsValid( ent ) or not ent.cfcParachuteState then return false end
+
+    if ent:GetNWBool( "CFC_Parachute_Open" ) then
+        updateOpenChute( ent )
+        return true
+    end
+
+    local expiresAt = ent.cfcParachuteState.expiresAt
+    if expiresAt and expiresAt <= CurTime() then
+        ent.cfcParachuteState = nil
+        return false
+    end
+
+    return true
+end
+
 hook.Add( "Think", "CFC_Parachute_UpdateState", function()
     for ent in pairs( activeChutes ) do
-        if not IsValid( ent ) or not ent.cfcParachuteState then
-            activeChutes[ent] = nil
-        elseif ent:GetNWBool( "CFC_Parachute_Open" ) then
-            if ent:WaterLevel() >= 2 then
-                CFC_Parachute.CloseParachute( ent )
-            elseif ent:IsPlayer() then
-                updateChuteDirection( ent )
-            elseif isEntityCloseToGround( ent ) then
-                CFC_Parachute.CloseParachute( ent, 0.5 )
-            else
-                CFC_Parachute._ApplyEntityChuteForces( ent )
-            end
-        elseif ent.cfcParachuteState.expiresAt and ent.cfcParachuteState.expiresAt <= CurTime() then
-            ent.cfcParachuteState = nil
+        if not updateChuteState( ent ) then
             activeChutes[ent] = nil
         end
     end
