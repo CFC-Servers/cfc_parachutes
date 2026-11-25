@@ -2,16 +2,19 @@ local cvFallZVel
 local cvFallLerp
 local cvHorizontalSpeed
 local cvHorizontalSpeedLimit
+local cvHorizontalSpeedLimitLerp
 local cvSprintBoost
 local cvHandling
 
-local vHorizontalSpeedLimitDamageGrace = 25
+local cvHorizontalSpeedLimitDamageGrace
 
 local function setupConVars()
     local FALL_SPEED = GetConVar( "cfc_parachute_fall_speed" )
     local FALL_LERP = GetConVar( "cfc_parachute_fall_lerp" )
     local HORIZONTAL_SPEED = GetConVar( "cfc_parachute_horizontal_speed" )
     local HORIZONTAL_SPEED_LIMIT = GetConVar( "cfc_parachute_horizontal_speed_limit" )
+    local HORIZONTAL_SPEED_LIMIT_DAMAGE_GRACE = GetConVar( "cfc_parachute_horizontal_speed_limit_damage_grace" )
+    local HORIZONTAL_SPEED_LIMIT_LERP = GetConVar( "cfc_parachute_horizontal_speed_limit_lerp" )
     local SPRINT_BOOST = GetConVar( "cfc_parachute_sprint_boost" )
     local HANDLING = GetConVar( "cfc_parachute_handling" )
 
@@ -35,6 +38,16 @@ local function setupConVars()
         cvHorizontalSpeedLimit = assert( tonumber( new ) )
     end )
 
+    cvHorizontalSpeedLimitLerp = HORIZONTAL_SPEED_LIMIT_LERP:GetFloat()
+    cvars.AddChangeCallback( "cfc_parachute_horizontal_speed_limit_lerp", function( _, _, new )
+        cvHorizontalSpeedLimitLerp = assert( tonumber( new ) )
+    end )
+
+    cvHorizontalSpeedLimitDamageGrace = HORIZONTAL_SPEED_LIMIT_DAMAGE_GRACE:GetFloat()
+    cvars.AddChangeCallback( "cfc_parachute_horizontal_speed_limit_damage_grace", function( _, _, new )
+        cvHorizontalSpeedLimitDamageGrace = assert( tonumber( new ) )
+    end, "CFC_Parachute_HorizontalSpeedLimitDamageGrace" )
+
     cvSprintBoost = SPRINT_BOOST:GetFloat()
     cvars.AddChangeCallback( "cfc_parachute_sprint_boost", function( _, _, new )
         cvSprintBoost = assert( tonumber( new ) )
@@ -47,7 +60,7 @@ local function setupConVars()
 end
 
 hook.Add( "InitPostEntity", "CFC_Shared_Parachute_GetConvars", setupConVars )
-if Entity( 0 ) != NULL then
+if Entity( 0 ) ~= NULL then
     setupConVars() -- AutoRefresh :D
 end
 
@@ -61,7 +74,7 @@ local function improveHandling( vel, moveDir )
     if velLength == 0 then return moveDir end
 
     local dot = vel:Dot( moveDir )
-    dot = dot / velLength -- Get dot product on 0-1 scale
+    dot = dot / velLength -- Get dot product on -1 - 1 scale
     if dot >= 0 then return moveDir end -- moveDir doesn't oppose vel.
 
     local mult = math.max( -dot * cvHandling, 1 )
@@ -80,9 +93,9 @@ local function getHorizontalMoveSpeed( ply )
 end
 
 -- Acquire direction based on chuteDirRel applied to the player's eye angles.
-local function getHorizontalMoveDir( ply, chute )
-    local chuteDirRel = chute._chuteDirRel
-    if chuteDirRel == VEC_ZERO then return chuteDirRel, false end
+local function getHorizontalMoveDir( ply )
+    local chuteDirRel = ply:GetNWVector( "CFC_Parachute_Direction" )
+    if chuteDirRel == nil then return chuteDirRel, false end
 
     local eyeAngles = ply:EyeAngles()
     local eyeForward = eyeAngles:Forward()
@@ -94,45 +107,76 @@ local function getHorizontalMoveDir( ply, chute )
     return moveDir, true
 end
 
-local function addHorizontalVel( ply, chute, vel, timeMult )
-    -- Acquire player's desired movement direction
-    local hDir, hDirIsNonZero = getHorizontalMoveDir( ply, chute )
+local function limitHorizontalVel( vel, timeMult )
+    local speed = vel:Length2D()
+    if speed <= cvHorizontalSpeedLimit then return vel end
 
-    -- Add movement velocity (WASD control)
+    local fraction = math.Clamp( timeMult * cvHorizontalSpeedLimitLerp, 0, 1 )
+    local mult = Lerp( fraction, speed, cvHorizontalSpeedLimit ) / speed
+    vel.x = vel.x * mult
+    vel.y = vel.y * mult
+
+    return vel
+end
+
+local function addHorizontalVel( ply, vel, timeMult )
+    local hDir, hDirIsNonZero = getHorizontalMoveDir( ply )
+
     if hDirIsNonZero then
         hDir = improveHandling( vel, hDir )
         vel = vel + hDir * timeMult * getHorizontalMoveSpeed( ply )
     end
 
-    -- Limit the horizontal speed
-    local hSpeedCur = vel:Length2D()
-    local hSpeedLimit = cvHorizontalSpeedLimit
-
-    if hSpeedCur > hSpeedLimit then
-        local mult = hSpeedLimit / hSpeedCur
-
-        vel[1] = vel[1] * mult
-        vel[2] = vel[2] * mult
-        if SERVER then -- so propsurf breaks it
-            local gracedLimit = hSpeedLimit + vHorizontalSpeedLimitDamageGrace
-            if hSpeedCur > gracedLimit then -- so airstrafing DOESNT break it
-                chute:ChuteTakeDamage( 1 )
-            end
-        end
+    if SERVER and vel:Length2D() > cvHorizontalSpeedLimit + cvHorizontalSpeedLimitDamageGrace then
+        CFC_Parachute.DamageParachute( ply, 1 )
     end
 
-    return vel
+    return limitHorizontalVel( vel, timeMult )
+end
+
+-- Physics entities use physics velocity, not the player's movement/base-velocity workaround.
+function CFC_Parachute._ApplyEntityChuteForces( ent )
+    if not SERVER or ent:GetMoveType() ~= MOVETYPE_VPHYSICS then return end
+
+    local timeMult = engine.TickInterval()
+    local damaged = false
+
+    for i = 0, ent:GetPhysicsObjectCount() - 1 do
+        local phys = ent:GetPhysicsObjectNum( i )
+
+        if IsValid( phys ) and phys:IsMotionEnabled() and not phys:IsAsleep() then
+            local originalVel = phys:GetVelocity()
+            local vel = Vector( originalVel )
+
+            if not damaged and vel:Length2D() > cvHorizontalSpeedLimit + cvHorizontalSpeedLimitDamageGrace then
+                CFC_Parachute.DamageParachute( ent, 1 )
+                damaged = true
+                if not ent:GetNWBool( "CFC_Parachute_Open" ) then return end
+            end
+
+            vel = limitHorizontalVel( vel, timeMult )
+            if vel.z <= cvFallZVel then
+                vel.z = Lerp( math.Clamp( timeMult * cvFallLerp, 0, 1 ), vel.z, cvFallZVel )
+
+                if phys:IsGravityEnabled() then
+                    vel.z = vel.z - physenv.GetGravity().z * timeMult
+                end
+            end
+
+            if vel ~= originalVel then phys:SetVelocity( vel ) end
+        end
+    end
 end
 
 -- Not meant to be called manually.
-function CFC_Parachute._ApplyChuteForces( ply, chute, mv )
+function CFC_Parachute._ApplyChuteForces( ply, mv )
     local vel = mv and mv:GetVelocity() or ply:GetVelocity()
     local velZ = vel[3]
 
     local timeMult = FrameTime()
 
     -- Modify velocity.
-    vel = addHorizontalVel( ply, chute, vel, timeMult )
+    vel = addHorizontalVel( ply, vel, timeMult )
     velZ = velZ + ( cvFallZVel - velZ ) * cvFallLerp * timeMult
 
     -- do this after we check the horizontal vel
@@ -160,18 +204,8 @@ function CFC_Parachute._ApplyChuteForces( ply, chute, mv )
     end
 end
 
-if SERVER then
-    hook.Add( "Move", "CFC_Parachute_Movement", function( ply, mv )
-        local parachute = ply:GetTable().cfcParachuteChute
-        if parachute and parachute != NULL and parachute:GetIsOpen() then -- Simple NULL check since it's a normal entity :D
-            CFC_Parachute._ApplyChuteForces( ply, parachute, mv )
-        end
-    end )
-else
-    hook.Add( "Move", "CFC_Parachute_Movement", function( ply, mv ) -- Only called for the local player
-        local parachute = ply:GetNW2Entity( "CFC_Parachute" )
-        if parachute and parachute != NULL then -- Simple NULL check since it's a normal entity :D
-            CFC_Parachute._ApplyChuteForces( ply, parachute, mv )
-        end
-    end )
-end
+hook.Add( "Move", "CFC_Parachute_Movement", function( ply, mv )
+    if not ply:GetNWBool( "CFC_Parachute_Open" ) then return end
+
+    CFC_Parachute._ApplyChuteForces( ply, mv )
+end )

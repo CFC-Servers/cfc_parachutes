@@ -23,7 +23,6 @@ CreateClientConVar( "cfc_parachute_space_equip", 2, true, true, "Press spacebar 
 CreateClientConVar( "cfc_parachute_space_equip_double", 2, true, true, "Double tap spacebar to equip parachutes, instead of a single press.", 0, 2 )
 CreateClientConVar( "cfc_parachute_quick_close_advanced", 2, true, true, "Changes the key combo for closing parachutes from crouch to crouch + walk.", 0, 2 )
 
-
 CreateConVar( "cfc_parachute_design", 1, { FCVAR_ARCHIVE, FCVAR_USERINFO, FCVAR_SERVER_CAN_EXECUTE }, "Your selected parachute design.", 1, 50000 )
 
 local MENU_COLOR = Color( 36, 41, 67, 255 )
@@ -41,7 +40,6 @@ local TOOLTIP_COLOR = Color( 24, 29, 59, 255 )
 local TOOLTIP_OUTLINE_COLOR = Color( 50, 58, 75, 255 )
 
 local designPreviewMaterialPaths = {}
-
 
 table.insert( CFC_Parachute.MenuToggleButtons, {
     HideState = true,
@@ -79,7 +77,6 @@ table.insert( CFC_Parachute.MenuToggleButtons, {
         "(alt by default)" .. "\n\n" ..
         "The keys must be pressed within quick succession of each other."
 } )
-
 
 local function updateMenuButton( button )
     if not button then return end
@@ -127,7 +124,6 @@ local function getDesignPreviewMaterial( ind )
 
     return matName, unlitMatPath
 end
-
 
 function CFC_Parachute.CreateDesignPreview( x, y, ind, panel )
     local icon = vgui.Create( "ContentIcon", panel )
@@ -386,7 +382,6 @@ function CFC_Parachute.OpenDesignMenu()
     end
 end
 
-
 cvars.AddChangeCallback( "cfc_parachute_design", function()
     -- Use a timer to ensure USERINFO is updated before the server tries to read it, and reduce net messages if someone spams the design buttons
     timer.Create( "CFC_Parachute_SelectDesign", 0.25, 1, function()
@@ -394,7 +389,6 @@ cvars.AddChangeCallback( "cfc_parachute_design", function()
         net.SendToServer()
     end )
 end )
-
 
 hook.Add( "InitPostEntity", "CFC_Parachute_FinalMenuPrep", function()
     hook.Run( "CFC_Parachute_CheckOptionalDependencies" )
@@ -423,14 +417,4 @@ hook.Add( "PopulateToolMenu", "CFC_Parachute_PopulateToolMenu", function()
             RunConsoleCommand( "-menu" )
         end
     end )
-end )
-
-
-net.Receive( "CFC_Parachute_DefineChuteDir", function()
-    local chute = net.ReadEntity()
-    local chuteDirRel = net.ReadVector()
-
-    if not chute.SetChuteDirection then return end -- Somehow the function sometimes becomes nil while the parachute is still valid
-
-    chute:SetChuteDirection( chuteDirRel )
 end )

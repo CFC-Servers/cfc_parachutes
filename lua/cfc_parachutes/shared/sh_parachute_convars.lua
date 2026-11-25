@@ -44,9 +44,11 @@ CFC_Parachute.DesignMaterialProxyInfo = { -- Proxy info, indexed by material nam
 
 
 CreateConVar( "cfc_parachute_fall_speed", 200, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Target fall speed while in a parachute.", 0, 50000 )
-CreateConVar( "cfc_parachute_fall_lerp", 2, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "How quickly a parachute will reach its target fall speed. Higher values are faster.", 0, 100 )
+CreateConVar( "cfc_parachute_fall_lerp", 0.5, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "How quickly a parachute will reach its target fall speed. Higher values are faster.", 0, 100 )
 CreateConVar( "cfc_parachute_horizontal_speed", 80, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "How quickly you move in a parachute.", 0, 50000 )
 CreateConVar( "cfc_parachute_horizontal_speed_limit", 700, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Max horizontal speed of a parachute.", 0, 50000 )
+CreateConVar( "cfc_parachute_horizontal_speed_limit_damage_grace", 85, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Extra horizontal speed allowed above the limit before parachutes take damage.", 0, 50000 )
+CreateConVar( "cfc_parachute_horizontal_speed_limit_lerp", 4, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "How quickly excess horizontal speed eases toward the limit. Higher values brake faster; 0 disables braking.", 0, 100 )
 CreateConVar( "cfc_parachute_sprint_boost", 1.25, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "How much of a horizontal boost you get in a parachute while sprinting.", 1, 10 )
 CreateConVar( "cfc_parachute_handling", 4, { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Improves parachute handling by making it easier to brake or chagne directions. 1 gives no handling boost, 0-1 reduces handling.", 0, 10 )
 
